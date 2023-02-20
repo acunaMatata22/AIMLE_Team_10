@@ -11,6 +11,7 @@ Otherwise:
 
 To modify the GUI, please refer to:
 Tkinter Documentation: https://docs.python.org/3/library/tk.html
+                       https://www.geeksforgeeks.org/tkinter-optionmenu-widget/
 """
 
 ## Import required libraries
@@ -76,10 +77,58 @@ def get_computer_move():
     else:
         return 'scissors'
 
-def get_ai_move():
+# called in get_human_move()
+def get_ai_move(data, user_strat):
     '''
-    To Do: Implement the win-stay, lose-shift or the win-shift, lose-shift strategy
+    Implement the win-stay, lose-shift or the win-shift, lose-shift strategy
     '''
+    
+    # check if there is any data available from previous rounds
+    if data:
+        last_human_move = np.array(data)[-1,0]
+        last_ai_move = np.array(data)[-1,1]
+        
+        # get the winner of the previous round
+        winner = select_winner(last_ai_move,last_human_move)
+        
+        if user_strat == 'win-stay_lose-shift':
+            # implement win-stay, lose-shift strategy
+            if winner == "computer":
+                # if the AI won the last round, choose the same move again
+                return last_ai_move
+            elif winner == "human":
+                # if the AI lost the last round, shift to the next move
+                if last_human_move == 'rock':
+                    return 'paper'
+                elif last_human_move == 'paper':
+                    return 'scissors'
+                elif last_human_move == 'scissors':
+                    return 'rock'
+            elif winner == 'tie':
+                # if the last round was a tie, choose a random move
+                return get_computer_move()
+        elif user_strat == 'win-shift_lose-shift':
+            # implement win-shift, lose-shift strategy
+            if winner == "computer":
+                # if the AI won the last round, choose the opponent's previous move
+                return last_human_move
+            elif winner == "human":
+                # if the AI lost the last round, shift to the next move
+                if last_human_move == 'rock':
+                    return 'paper'
+                elif last_human_move == 'paper':
+                    return 'scissors'
+                elif last_human_move == 'scissors':
+                    return 'rock'
+            elif winner == 'tie':
+                # if the last round was a tie, choose a random move
+                return get_computer_move()
+        elif user_strat == 'random':
+            return get_computer_move()
+    else:
+        # if there is no previous data, choose a random move
+        return get_computer_move()
+    
 
 def get_bayes_net_human_move():
     '''
@@ -94,15 +143,17 @@ def get_real_time_bayes_net_human_move():
     The choice of Bayes network to use (V-DAG (Prediction|Human Move and Computer Move) or Naive Bayes (Inverted V-DAG) (Human Move|Prediction)x(Computer Move|Prediction))
     '''
 
+# called in display_module()
 def get_human_move(human_move, tt):
     """
     returns a valid move from the human (rock, paper, or scissors) and updates the scores and returns a winner
     """
 
     global continue_playing_button
+    # print(user_strat)
 
-    # Get computer move
-    computer_move = get_computer_move()
+    # Game Mode <<------------------------------------
+    computer_move = get_ai_move(data,user_strat) 
 
     # Select the winner
     winner = select_winner(computer_move, human_move)
@@ -230,26 +281,53 @@ def welcome():
     user_entry = Entry(Window, width = 5)
     user_entry.pack()
     user_entry.place(x = 330, y = 97) 
-
-    start_game_button=Button(Window,text='Start Playing!',command= lambda t= user_entry: playgame(t))
+    
+    # Create the list of options
+    options_list = ["random", "win-stay_lose-shift", "win-shift_lose-shift"]
+    
+    # Variable to store the option user
+    # selected in OptionMenu
+    value_inside = tk.StringVar(Window)
+    
+    # Set the default value of the variable
+    value_inside.set("Select an Option")
+    
+    strategy_label=Label(Window, foreground='black',background='white', text='You wish to play against:') 
+    strategy_label.place(x = 40,y = 80)
+    
+    # Create the optionmenu widget and passing 
+    # the options_list and value_inside to it.
+    question_menu = tk.OptionMenu(Window, value_inside, *options_list)
+    question_menu.pack()
+    question_menu.place(x = 330, y = 77) 
+    
+    # start_game_button=Button(Window,text='Start Playing!',command= lambda t= user_entry: playgame(t))
+    # t is a tuple
+    start_game_button = Button(Window, text='Start Playing!', command=lambda t=(value_inside, user_entry): playgame(t))
     start_game_button.pack()
     start_game_button.place(x = 330, y = 130)
+    
 
 def playgame(t):
     '''
     This function controls the round logic, based on how many rounds you would like to play
     '''
-    nums_label=Label(Window, foreground='black',background='white', text='You will play {} games against a random strategy'.format(t.get()))
+    nums_label=Label(Window, foreground='black',background='white', text='You will play {} games against a random strategy'.format(t[1].get())) # t[1] is a widget, t.get() is a value
     nums_label.place(x = 40,y = 180) 
     end_label=Label(Window, foreground='black',background='white', text='----------------------------------------------')
     end_label.place(x = 40,y = 200) 
 
+    # print(t[0].get())
+    
     global total_computer_score
     global total_human_score
     global labels
     global labels2
     global data
     global count
+    global user_strat
+    
+    user_strat = t[0].get()
     count = 0
     data = []
     total_human_score = 0
@@ -259,7 +337,7 @@ def playgame(t):
     labels2.extend([nums_label, end_label])
 
     ## Call display function to select a move
-    display_module(t)
+    display_module(t[1])
 
 
 if __name__ == '__main__':
